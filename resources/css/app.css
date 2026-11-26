@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+
+@source '../js/**/*.tsx';
+@source '../views/**/*.blade.php';
+
+@theme {
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+
+    /* Encre (navigation) et ambre (actions) : l'univers des archives et du papier, sans le côté poussiéreux. */
+    --color-ink-50: #f5f6f8;
+    --color-ink-100: #e8eaef;
+    --color-ink-200: #d2d6df;
+    --color-ink-400: #8a93a6;
+    --color-ink-500: #5d677c;
+    --color-ink-700: #2e3648;
+    --color-ink-800: #222938;
+    --color-ink-900: #171c28;
+    --color-amber-brand: #b7791f;
+    --color-amber-brand-dark: #975f12;
+    --color-paper: #faf8f4;
+}
+
+@layer components {
+    .card { @apply rounded-xl border border-ink-100 bg-white shadow-[0_1px_2px_rgba(23,28,40,.05)]; }
+    .card-pad { @apply p-5; }
+    .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-medium text-ink-800 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50; }
+    .btn-primary { @apply border-amber-brand bg-amber-brand text-white hover:bg-amber-brand-dark; }
+    .btn-danger { @apply border-red-700 bg-red-700 text-white hover:bg-red-800; }
+    .btn-ghost { @apply border-transparent bg-transparent hover:bg-ink-100; }
+    .btn-sm { @apply px-2.5 py-1.5 text-xs; }
+    .field { @apply flex flex-col gap-1.5 text-sm font-medium text-ink-700; }
+    .input { @apply w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none placeholder:text-ink-400 focus:border-amber-brand focus:ring-2 focus:ring-amber-brand/20; }
+    .error { @apply text-xs font-normal text-red-700; }
+    .th { @apply px-4 py-2.5 text-left text-[11px] font-semibold tracking-wider text-ink-500 uppercase; }
+    .td { @apply px-4 py-3 align-middle text-sm; }
+    .mono { @apply font-mono text-[0.86em]; }
+}
+
+h1:focus { outline: none; }

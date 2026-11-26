@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Qualité et tests (SQLite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_sqlite, zip, intl
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Dépendances PHP
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Style du code PHP (Laravel Pint)
+        run: vendor/bin/pint --test
+      - name: Interface (TypeScript + Vite)
+        run: npm ci && npm run build
+      - name: Tests PHPUnit
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          vendor/bin/phpunit
+
+  tests-postgres:
+    name: Tests sur PostgreSQL (recherche plein texte)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: gedflow_test
+          POSTGRES_USER: gedflow
+          POSTGRES_PASSWORD: gedflow
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U gedflow" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: gedflow_test
+      DB_USERNAME: gedflow
+      DB_PASSWORD: gedflow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_pgsql, zip, intl
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Tests PHPUnit sur PostgreSQL
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          vendor/bin/phpunit
+
+  docker:
+    name: Démarrage Docker Compose (smoke test)
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construction et démarrage
+        run: docker compose up -d --build
+      - name: L'application répond et les données de démonstration sont chargées
+        run: |
+          for i in $(seq 1 60); do curl -sf http://localhost:8080/up > /dev/null && break; sleep 3; done
+          curl -sf http://localhost:8080/login | grep -q "GedFlow"
+          docker compose exec -T app php artisan ged:remind-overdue
+          # Les notifications de démonstration passent par SMTP : Mailpit doit en avoir reçu.
+          test "$(curl -sf http://localhost:8025/api/v1/messages | jq .total)" -gt 0
+          echo "✅ GedFlow démarré : application, PostgreSQL, worker, planificateur et Mailpit"
+      - name: Journaux en cas d'échec
+        if: failure()
+        run: docker compose logs app worker
+      - if: always()
+        run: docker compose down -v

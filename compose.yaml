@@ -1,0 +1,80 @@
+# docker compose up --build
+#   GedFlow         : http://localhost:8080   (comptes de démonstration : voir la page de connexion, mot de passe « password »)
+#   Mailpit (e-mails) : http://localhost:8025
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  environment: &env
+    APP_NAME: GedFlow
+    APP_ENV: local
+    APP_DEBUG: "false"
+    # Clé de démonstration : à remplacer (php artisan key:generate --show) pour toute utilisation réelle.
+    APP_KEY: ${APP_KEY:-base64:pLv8LoaDQVWJexahAV5RWYXZ+0qhHnf79xQQLkTiWWk=}
+    APP_URL: http://localhost:8080
+    APP_LOCALE: fr
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_DATABASE: gedflow
+    DB_USERNAME: gedflow
+    DB_PASSWORD: gedflow
+    QUEUE_CONNECTION: database
+    SESSION_DRIVER: database
+    CACHE_STORE: database
+    MAIL_MAILER: smtp
+    MAIL_HOST: mailpit
+    MAIL_PORT: "1025"
+    MAIL_FROM_ADDRESS: ged@gedflow.test
+    MAIL_FROM_NAME: GedFlow
+    LOG_CHANNEL: stderr
+  volumes:
+    - documents:/var/www/html/storage/app/private
+  depends_on:
+    postgres:
+      condition: service_healthy
+    mailpit:
+      condition: service_started
+
+services:
+  app:
+    <<: *app
+    environment:
+      <<: *env
+      SEED_DEMO: "true"
+    ports:
+      - "8080:80"
+
+  # Tâches de fond : extraction du texte des fichiers, envoi des e-mails.
+  worker:
+    <<: *app
+    command: ["php", "artisan", "queue:work", "--tries=3", "--backoff=10"]
+
+  # Relance horaire des étapes de validation en retard.
+  scheduler:
+    <<: *app
+    command: ["php", "artisan", "schedule:work"]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gedflow
+      POSTGRES_USER: gedflow
+      POSTGRES_PASSWORD: gedflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gedflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "8025:8025"
+
+volumes:
+  postgres-data:
+  documents:
